@@ -4,37 +4,39 @@
 
 ## 用途
 
-解决 OpenClaw skill 创建流程不规范的问题，提供标准化的脚手架生成、格式验证、一键发布到 GitHub，以及 MemOS 注册提示。
+标准化 skill 创建流程：脚手架生成 → 内容填写 → GitHub 发布 → MemOS 自动注册，全程 4 步完成。
 
-## 使用方法
+## 快速开始
 
 ```bash
+SCRIPTS=~/.openclaw/workspace/local-skill-creator/scripts
+
 # 1. 创建脚手架
-python3 scripts/init_skill.py <skill-name> --description "..."
+python3 $SCRIPTS/init_skill.py my-skill --description "这个 skill 做什么"
 
-# 2. 填写 SKILL.md 和 README.md
+# 2. 填写 ~/.openclaw/skills/my-skill/SKILL.md 和 README.md
 
-# 3. 验证格式
-python3 scripts/quick_validate.py ~/.openclaw/skills/<skill-name>
+# 3. 发布到 GitHub（自动 validate + git push + 写注册队列）
+python3 $SCRIPTS/publish_skill.py ~/.openclaw/skills/my-skill --owner "马振坤"
 
-# 4. 发布到 GitHub + 获取 MemOS 注册提示
-python3 scripts/publish_skill.py ~/.openclaw/skills/<skill-name> --owner "马振坤"
-
-# 5. 在 OpenClaw agent 中执行 MemOS 注册（让 skill_search 可检索）
+# 4. AI agent 读队列 → memory_write_public → 清空队列
+python3 $SCRIPTS/register_memos.py        # 读队列（AI agent 处理）
+python3 $SCRIPTS/register_memos.py --clear  # 清空
 ```
 
 ## 脚本说明
 
 | 脚本 | 功能 |
 |------|------|
-| `init_skill.py` | 生成 skill 脚手架（SKILL.md + README.md + 目录） |
-| `quick_validate.py` | 验证 SKILL.md frontmatter + README.md 存在 |
-| `publish_skill.py` | validate + git push + MemOS 注册提示 |
+| `init_skill.py` | 生成 skill 脚手架（SKILL.md + README.md） |
+| `quick_validate.py` | 验证格式（frontmatter + README.md） |
+| `publish_skill.py` | validate + git push + 写 pending 队列 |
+| `register_memos.py` | 读/清空 pending 队列，供 AI agent 注册 MemOS |
 | `package_skill.py` | 打包成 .skill 归档（备用） |
 
 ## 注意事项
 
 - skill 名称：小写字母、数字、连字符，1-64 字符
-- `skill_search` 不读本地文件，需额外注册到 MemOS public memory 才能被检索
-- 默认输出路径：`~/.openclaw/skills/`
+- pending 队列：`~/.openclaw/skills/.pending-memos.json`
 - 默认 GitHub repo：`~/.openclaw/workspace/openclaw-watchdog-skill-library`
+- `skill_search` 不读本地文件，必须注册到 MemOS 才能被检索
