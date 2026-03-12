@@ -1,10 +1,6 @@
 ---
-name: Chrome Relay Browser Control
-slug: chrome-relay-browser-control
-version: 1.0.0
-description: Control Windows Chrome browser via OpenClaw Browser Relay extension. Navigate pages, click elements, extract data, and operate third-party extensions like SellerSprite.
-changelog: Initial release based on real session with Horse (2026-03-12). Covers relay setup, navigation, click strategies, screenshot workflow, and data extraction.
-metadata: {"clawdbot":{"emoji":"🌐","requires":{"bins":["python3"],"paths":["/home/claw/.openclaw/extensions/openclaw-browser-relay/"]},"os":["linux"]}}
+name: chrome-relay-browser-control
+description: "Control Windows Chrome browser via OpenClaw Browser Relay extension. Navigate pages, click elements, extract data, and operate third-party extensions like SellerSprite."
 ---
 
 ## Setup
