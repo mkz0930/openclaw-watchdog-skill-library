@@ -15,7 +15,7 @@ from pathlib import Path
 import yaml
 
 
-def validate_skill(skill_path: Path):
+def validate_skill(skill_path: Path, quiet: bool = False):
     errors = []
 
     # 1. SKILL.md
@@ -56,9 +56,10 @@ def validate_skill(skill_path: Path):
 
     if errors:
         for e in errors:
-            print(e)
+            print(e, file=sys.stderr if quiet else sys.stdout)
         return False
-    print(f'✅ {skill_path.name}: all checks passed')
+    if not quiet:
+        print(f'✅ {skill_path.name}: all checks passed')
     return True
 
 
