@@ -1,80 +1,175 @@
-# Chrome Relay 浏览器控制 Skill
+# Chrome Relay 浏览器控制（自研插件版）
 
-## 这个 Skill 是做什么的？
+## ⚠️ 重要说明：这是自研插件，不是官方 relay！
 
-让 AI 直接控制你 **已经打开的 Windows Chrome 浏览器**，而不是启动一个新的无头浏览器。
+- 官方 relay：`OpenClaw Browser Relay`（拓展商店安装）
+- 本插件：自研插件（端口 19000，支持navigate/open等命令）
 
-AI 可以：
-- 打开网页、跳转 URL
-- 点击按钮、填写表单
-- 读取页面上的文字和数据
-- 截图并发给你确认
-- 配合卖家精灵等 Chrome 扩展插件一起工作
+---
 
-## 有什么用？
+## ✅ 完整工作流（4 步）
 
-**核心优势：复用你已登录的 Chrome**
+### 1️⃣ 启动 Linux server（保活）
 
-| 场景 | 传统方式 | 用这个 Skill |
-|------|---------|------------|
-| 亚马逊数据采集 | 每次重新登录 | 直接用你的账号状态 |
-| 卖家精灵数据读取 | 无法操作 Chrome 扩展 | AI 可点击扩展注入的按钮 |
-| 日常网页操作 | 手动操作 | 告诉 AI，AI 帮你做 |
-
-**典型使用场景：**
-- 打开亚马逊搜索页 → 激活卖家精灵 → 读取商品销量/BSR/价格数据 → AI 分析给出结论
-- 批量打开商品详情页，逐一截图记录
-- 自动填写表单、点击确认按钮
-
-## 有什么风险？
-
-### ⚠️ 需要了解的风险
-
-**1. AI 可以操作你的真实浏览器**
-AI 发出的点击、导航命令会直接作用于你正在使用的 Chrome，包括已登录的账号。误操作可能导致：
-- 意外提交表单
-- 误点购买/确认按钮
-- 页面跳转打断你的工作
-
-**建议：** 重要操作前让 AI 先截图确认，再执行。
-
-**2. 扩展权限较高**
-Chrome 扩展声明了 `<all_urls>` 权限，可以在任意网页上执行脚本。仅从可信来源安装。
-
-**3. relay server 监听本地端口**
-server.py 监听 `0.0.0.0:19000`，局域网内其他设备理论上可以连接。如果在公共网络环境，建议改为只监听 `127.0.0.1`：
-```python
-# server/server.py 第 90 行
-async with serve(handler, "127.0.0.1", 19000, ...)
+```bash
+cd /home/claw/.openclaw/extensions/openclaw-browser-relay/server
+./start-server.sh
+# 自动后台运行 + 10秒监控
+# 日志：server.log, monitor.log
 ```
 
-**4. eval 命令可执行任意 JS**
-AI 可以通过 `eval` 在页面上执行 JavaScript。大多数网站（如亚马逊）的 CSP 会拦截这个命令，但部分网站不会。
+**验证：**
+```bash
+ss -tlnp | grep :19000
+# 应看到 python3 监听
+```
 
-### ✅ 相对安全的点
+---
 
-- WebSocket 连接是本地的，不经过外部服务器
-- 所有命令都需要 AI 主动发起，不会自动执行
-- 可以随时关闭 Chrome 扩展或停止 server 来断开控制
+### 2️⃣ Windows Chrome 插件配置
 
-## 前置条件
+1. 安装自研 Chrome 插件（.crx 或开发者模式加载）
+2. 打开任意页面（如 `amazon.com`）
+3. 点击插件图标 → **关闭“自动重连”**（会掉线！）
+4. 手动点击 **「附加当前标签页」**（或直接输入亚马逊 URL）
+5. 确认插件图标变绿 ✅（非闪烁）
 
-- Linux/WSL 环境（运行 relay server）
-- Windows Chrome（安装扩展）
-- Python 3.8+，安装 `websockets` 库
+**验证：**
+- Windows Chrome 任务管理器 → 扩展进程
+- 或查看插件弹窗是否显示 “已连接 172.25.4.135:19000”
 
-## 快速上手
+---
 
-1. 参考 `setup.md` 启动 relay server 并安装 Chrome 扩展
-2. 确认扩展徽章变绿
-3. 告诉 AI："帮我打开亚马逊，搜索 light"
+### 3️⃣ 打开网页（3种方式）
 
-## 相关文件
+#### 方式A：针式插件打开（推荐 ✅）
+
+**Windows Chrome 插件里有“打开 URL”按钮 → 点击**
+
+#### 方式B：Python WebSocket 发送 `navigate`（推荐 ✅）
+
+```python
+# test_relay.py
+import asyncio, websockets, json
+
+async def cmd(action, **kwargs):
+    async with websockets.connect('ws://localhost:19000') as ws:
+        await ws.send(json.dumps({'type': 'agent', 'version': '1.0.0'}))
+        await ws.recv()  # welcome
+        rid = str(asyncio.get_event_loop().time())
+        await ws.send(json.dumps({'action': action, 'request_id': rid, **kwargs}))
+        return json.loads(await asyncio.wait_for(ws.recv(), timeout=30))
+
+# Usage
+r = asyncio.run(cmd('navigate', url='https://www.amazon.com/s?k=camping'))
+print(r)
+```
+
+✅ **已验证可用！**
+
+#### 方式C：Python WebSocket 发送 `open`
+
+```python
+# 注意！本插件不支持 'open' 命令
+# 只能用 'navigate' 或直接在插件里输入 URL
+```
+
+❌ `browser.open` OpenClaw 工具会报 `PortInUseError`（尽管 server 正常）
+→ **绕过方式：用 Python 脚本直接发 WS 命令**
+
+---
+
+### 4️⃣ 数据抓取（4种方式）
+
+#### 方式A：直接截图（失败 ❌）
+
+```python
+r = asyncio.run(cmd('screenshot', format='jpeg', quality=40))
+# 可能返回 ok: true 但 data 为空
+# 推荐：在 Windows Chrome 里截屏
+```
+
+#### 方式B：读取 DOM 文本（推荐 ✅）
+
+```python
+r = asyncio.run(cmd('get_text', selector='body'))
+text = r.get('text', '')
+# 解析卖家精灵注入的数据
+```
+
+#### 方式C：点击按钮（推荐 ✅）
+
+```python
+r = asyncio.run(cmd('click_text', text='卖家精灵', exact=False))
+# 激活卖家精灵面板
+```
+
+#### 方式D：在 Windows Chrome 截图 → 手动发图
+
+Best practice：Windows Chrome 截图 → 微信/飞书发给你 → 你分析数据
+
+---
+
+## ⚠️ 5 个常见坑（实战经验）
+
+| 问题 | 症状 | 解决 |
+|------|------|------|
+| **1. server 崩了** | `cdpHttp: false`, 插件重连失败 | `./start-server.sh` 重启 |
+| **2. 插件重连太多** | 插件弹窗闪 `connecting...` | Windows Chrome 关闭插件重开 |
+| **3. `PortInUseError`** | `browser.*` 工具报错，但 Python WS 成功 | **忽略，用 Python 脚本代替** |
+| **4. `tabs: []`** | 插件未附加标签页 | 点击插件图标 → 「附加当前标签页」 |
+| **5. 端口冲突** | `ss -tlnp` 显示多个 python3 | `pkill -9 -f "server.py"` → 重开 |
+
+---
+
+## 🛠️ 故障排查清单
+
+1. **Linux server 是否运行？**
+   ```bash
+   ps aux | grep server.py | grep -v grep
+   # 应有 python3 server.py 进程
+   ```
+
+2. **端口是否监听？**
+   ```bash
+   ss -tlnp | grep :19000
+   # 应有 TCP *:19000 (LISTEN)
+   ```
+
+3. **Windows 插件是否Attach？**
+   - 插件图标绿 ✅（非红/闪烁）
+   - 弹窗显示 `connected to 172.25.4.135:19000`
+
+4. **是否用 `navigate` 打开页面？**
+   - ✅ Python `cmd('navigate', url=...)`
+   - ✅ Windows 插件按钮打开
+   - ❌ 不要用 OpenClaw `browser.open`（会报错）
+
+---
+
+## 📠 相关文件
 
 | 文件 | 说明 |
 |------|------|
-| `SKILL.md` | AI 操作指南（命令参考、工作流、故障排查） |
-| `setup.md` | 环境配置步骤 |
-| `plugin/README.md` | 插件源码说明 |
-| `plugin/extension/` | Chrome 扩展源码 |
-| `plugin/server/server.py` | relay server 源码 |
+| `server.py` | WebSocket relay server |
+| `background.js` | Chrome extension logic |
+| `start-server.sh` | 启动脚本（nohup + monitor.sh） |
+| `test_relay.py` | 直接发送命令的测试脚本 |
+| `do-amazon.py` | 完整亚马逊抓取示例 |
+
+---
+
+## ✅ 最佳实践
+
+1. **Server 一定要保活**：`nohup python3 server.py & > server.log 2>&1` + `monitor.sh`
+2. **第一次用一定要验证**：`python3 test_relay.py` → 看 `welcome` + `extension_online: true`
+3. **避免 OpenClaw 工具**：`browser.*` 全部跳过，用 Python WS
+4. **截图用 Windows**：插件在 Windows，截图用 `Win+Shift+S`+发图
+
+---
+
+## 📝 备注
+
+- 插件端口：`19000`（固定）
+- server IP：`172.25.4.135`（需插件配置匹配）
+- 插件协议：自研 WebSocket，不兼容官方 relay
