@@ -64,3 +64,39 @@ feishu_doc upload_image
 ## 详细指南
 
 见同目录 `SKILL.md`。
+
+---
+
+## 注册与调用（AI 自动发现）
+
+### 安装后如何让 AI 自动调用
+
+本 skill 已注册到 MemOS public memory，AI agent 可通过 `skill_search` 检索到。
+
+**触发关键词：** 飞书文档、图片插入、文档编辑、feishu doc、upload image
+
+**AI 调用方式：**
+```
+skill_search("飞书文档图片插入")
+→ 找到 feishu-doc-edit
+→ 读取 ~/.openclaw/skills/feishu-doc-edit/SKILL.md
+→ 按照 SKILL.md 中的步骤操作
+```
+
+### 手动注册（如果 skill_search 找不到）
+
+```bash
+# 1. 发布并写入注册队列
+python3 ~/.openclaw/workspace/local-skill-creator/scripts/publish_skill.py \
+  ~/.openclaw/skills/feishu-doc-edit --owner "马振坤"
+
+# 2. AI agent 执行注册
+python3 ~/.openclaw/workspace/local-skill-creator/scripts/register_memos.py
+# → 读取队列，调用 memory_write_public
+# → 注册完成后清空队列
+python3 ~/.openclaw/workspace/local-skill-creator/scripts/register_memos.py --clear
+```
+
+### GitHub
+
+https://github.com/mkz0930/openclaw-watchdog-skill-library/tree/master/feishu-doc-edit
