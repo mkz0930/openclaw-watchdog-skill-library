@@ -1,6 +1,9 @@
-# local-skill-creator
+---
+name: local-skill-creator
+description: "创建、验证、发布 AgentSkill 的本地工具集。包含脚手架生成、格式验证、一键发布到 GitHub 及自动注册到 MemOS。"
+---
 
-创建、验证、发布 AgentSkill 的本地工具集。
+# Local Skill Creator
 
 ## 用途
 
@@ -40,3 +43,35 @@ python3 $SCRIPTS/register_memos.py --clear  # 清空
 - pending 队列：`~/.openclaw/skills/.pending-memos.json`
 - 默认 GitHub repo：`~/.openclaw/workspace/openclaw-watchdog-skill-library`
 - `skill_search` 不读本地文件，必须注册到 MemOS 才能被检索
+
+---
+
+## 注册与调用（AI 自动发现）
+
+### 安装后如何让 AI 自动调用
+
+本 skill 已注册到 MemOS public memory，AI agent 可通过 `skill_search` 检索到。
+
+**触发关键词：** 创建 skill、发布 skill、skill creator、local skill、注册 MemOS
+
+**AI 调用方式：**
+```
+skill_search("创建 skill")
+→ 找到 local-skill-creator
+→ 工具路径: /home/claw/.openclaw/workspace/local-skill-creator/scripts/
+→ 按照上方 4 步流程执行
+```
+
+### 手动注册（如果 skill_search 找不到）
+
+```bash
+# 直接调用 memory_write_public，内容如下：
+# skill: local-skill-creator
+# description: 创建、验证、发布 AgentSkill 的本地工具集
+# path: /home/claw/.openclaw/workspace/local-skill-creator/
+# github: https://github.com/mkz0930/openclaw-watchdog-skill-library/tree/master/local-skill-creator
+```
+
+### GitHub
+
+https://github.com/mkz0930/openclaw-watchdog-skill-library/tree/master/local-skill-creator
