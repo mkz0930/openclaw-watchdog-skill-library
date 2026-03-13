@@ -14,8 +14,8 @@ cd /home/claw/.openclaw/extensions/openclaw-browser-relay/server
 
 ### 2. Windows 插件操作
 
-- 打开任意亚马逊页
-- 点击插件图标 → 选择「附加当前标签页」
+- 打开任意网页
+
 - 图标绿 ✅（非红/闪烁）
 
 ### 3. 打开网页（只用 Python）
