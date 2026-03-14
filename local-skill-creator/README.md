@@ -1,41 +1,73 @@
----
-name: local-skill-creator
-description: "创建、验证、发布 AgentSkill 的本地工具集。包含脚手架生成、格式验证、一键发布到 GitHub 及自动注册到 MemOS。"
----
+# local-skill-creator
 
-# Local Skill Creator
+创建、验证、发布 AgentSkill 的本地工具集（**Anthropics iteration enabled + MemOS registration**），
+**最新更新：增加了 `expectations` 字段 + `.history.json` 版本跟踪 + 用户沟通指南**。
 
 ## 用途
 
-标准化 skill 创建流程：脚手架生成 → 内容填写 → GitHub 发布 → MemOS 自动注册，全程 4 步完成。
+标准化 skill 创建流程：脚手架生成 → 内容填写 → **测试验证**（Anthropics）→ GitHub 发布 → MemOS 自动注册。
+新增：量化评估（expectation_pass_rate）、版本迭代追踪、用户友好沟通策略。
 
 ## 快速开始
 
 ```bash
 SCRIPTS=~/.openclaw/workspace/local-skill-creator/scripts
 
-# 1. 创建脚手架
+# 1. 创建脚手架（含 anthropics tests section）
 python3 $SCRIPTS/init_skill.py my-skill --description "这个 skill 做什么"
 
 # 2. 填写 ~/.openclaw/skills/my-skill/SKILL.md 和 README.md
 
-# 3. 发布到 GitHub（自动 validate + git push + 写注册队列）
+# 3. 创建 evals/evals.json（Anthropics workflow）
+#    每个 eval 需要: id, name, prompt, expected_output, assertions
+
+# 4. 运行 Human-in-the-loop test（Anthropics loop）
+python3 $SCRIPTS/run_tests.py \
+    --skill-path ~/.openclaw/skills/my-skill \
+    --workspace ~/test-workspace/my-skill \
+    --static ~/test-workspace/my-skill/viewer.html
+
+# 5. 使用 update-skill.sh 一键更新 + 测试（推荐）
+./$SCRIPTS/update-skill.sh my-skill
+
+# 6. 发布到 GitHub（自动 validate + git push + 写注册队列）
 python3 $SCRIPTS/publish_skill.py ~/.openclaw/skills/my-skill --owner "马振坤"
 
-# 4. AI agent 读队列 → memory_write_public → 清空队列
+# 7. AI agent 读队列 → memory_write_public → 清空队列
 python3 $SCRIPTS/register_memos.py        # 读队列（AI agent 处理）
 python3 $SCRIPTS/register_memos.py --clear  # 清空
 ```
 
 ## 脚本说明
 
-| 脚本 | 功能 |
-|------|------|
-| `init_skill.py` | 生成 skill 脚手架（SKILL.md + README.md） |
-| `quick_validate.py` | 验证格式（frontmatter + README.md） |
-| `publish_skill.py` | validate + git push + 写 pending 队列 |
-| `register_memos.py` | 读/清空 pending 队列，供 AI agent 注册 MemOS |
-| `package_skill.py` | 打包成 .skill 归档（备用） |
+| 脚本 | 功能 | 新增功能 |
+|------|------|----------|
+| `init_skill.py` | 生成 skill 脚手架（SKILL.md + README.md） | ✅ 自动添加 tests section |
+| `quick_validate.py` | 验证格式（frontmatter + README.md） | - |
+| `publish_skill.py` | validate + git push + 写 pending 队列 | - |
+| `register_memos.py` | 读/清空 pending 队列，供 AI agent 注册 MemOS | - |
+| `package_skill.py` | 打包成 .skill 归档（备用） | - |
+| `assertions.py` | ✨ 运行 assertions 生成 grading.json | 新增 |
+| `run_tests.py` | ✨ Anthropics workflow runner | 新增 |
+| `update-skill.sh` | ✨ 一键更新 + 测试 + viewer | 新增 |
+
+## Anthropics Workflow (New!)
+
+| 阶段 | 说明 | 命令 |
+|------|------|------|
+| 1️⃣ 创建 | 生成脚手架 | `python3 init_skill.py my-skill` |
+| 2️⃣ 测试 | 并行 with-skill + baseline | `python3 run_tests.py ...` |
+| 3️⃣ 评估 | 运行 assertions + `expectations` 检查 | `python3 assertions.py ...` |
+| 4️⃣ 对比 | viewer.html (prev/next iteration) | `--static viewer.html` |
+| 5️⃣ 反馈 | 提交 feedback.json | 点击 viewer 按钮 |
+| 6️⃣ 迭代 | 编辑 → 重测 → 循环 | `./update-skill.sh my-skill` |
+| 7️⃣ version track | 每次 iteration 更新 `.history.json` | ✨ Auto-created by runner |
+
+## Upgrade
+
+Run `scripts/upgrade-local-skill-creator.sh` to add Anthropics features to existing local-skill-creator.
+
+See `UPGRADE.md` for full details.
 
 ## 注意事项
 
@@ -43,35 +75,4 @@ python3 $SCRIPTS/register_memos.py --clear  # 清空
 - pending 队列：`~/.openclaw/skills/.pending-memos.json`
 - 默认 GitHub repo：`~/.openclaw/workspace/openclaw-watchdog-skill-library`
 - `skill_search` 不读本地文件，必须注册到 MemOS 才能被检索
-
----
-
-## 注册与调用（AI 自动发现）
-
-### 安装后如何让 AI 自动调用
-
-本 skill 已注册到 MemOS public memory，AI agent 可通过 `skill_search` 检索到。
-
-**触发关键词：** 创建 skill、发布 skill、skill creator、local skill、注册 MemOS
-
-**AI 调用方式：**
-```
-skill_search("创建 skill")
-→ 找到 local-skill-creator
-→ 工具路径: /home/claw/.openclaw/workspace/local-skill-creator/scripts/
-→ 按照上方 4 步流程执行
-```
-
-### 手动注册（如果 skill_search 找不到）
-
-```bash
-# 直接调用 memory_write_public，内容如下：
-# skill: local-skill-creator
-# description: 创建、验证、发布 AgentSkill 的本地工具集
-# path: /home/claw/.openclaw/workspace/local-skill-creator/
-# github: https://github.com/mkz0930/openclaw-watchdog-skill-library/tree/master/local-skill-creator
-```
-
-### GitHub
-
-https://github.com/mkz0930/openclaw-watchdog-skill-library/tree/master/local-skill-creator
+- `run_tests.py` 需要桌面环境打开 viewer；headless 环境：`--static`
