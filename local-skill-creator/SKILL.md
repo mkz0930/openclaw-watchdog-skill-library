@@ -50,33 +50,23 @@ local-skill-creator 的用户可能来自任何技术背景：有熟悉代码的
 3. 期望的输出格式是什么？
 4. 需要测试用例吗？（有客观可验证输出的 skill 需要；主观类如写作风格不需要）
 
-### 步骤 2：查询已有 skill（新增）
+### 步骤 2：查询已有 skill（**可选，建议手动确认**）
 
 **目的**：避免重复造轮子，优先使用社区现有 skill。
 
-**操作**：
+**现状**：
+- `npx skills find [query]` CLI 需要交互式输入，headless 环境可能无法直接调用
+- `skills.sh/?q=xxx` 页面由 JS 渲染，`web_fetch` 不返回结果
+- `openclaw/skills` mirror 非常大（8,858 skill），难以本地维护
 
-1. **提取关键词**：从用户需求中提取 2～3 个核心关键词（例如：「亚马逊」+「销量分析」）
+**建议做法**：
+1. **AI 反问**：「是否需要我帮你查是否有现成 skill？（推荐去 https://skills.sh/ 手动查）」
+2. **用户选「是」**：提供 `https://skills.sh/` 链接 + 用户自己查
+3. **用户选「否」**：直接进入「创建新 skill」流程
 
-2. **调用 find-skills**：  
-   调用 `@find-skills` skill（如果可用），或直接执行：
-   ```bash
-   npx skills find [query]  # 例如：npx skills find "amazon sales"
-   ```
-
-3. **展示结果**：
-   - ✅ **有匹配 skill**：  
-     - skill 名称 + 功能说明  
-     - `npx skills add` 安装命令  
-     - 官网链接（skills.sh/...）  
-     - 问用户：「是直接安装现成的？还是需要自己新建一个更定制的？」
-   - ❌ **无匹配 skill**：  
-     - 告知用户：「暂无匹配 skill，直接进入『创建新 skill』流程」  
-     - 继续步骤 3（写_SKILL.md）
-
-4. **判断路径**：
-   - 用户选「安装」→ 结束（直接提供安装命令）
-   - 用户选「新建」→ 继续步骤 3（创建新 skill）
+**如果用户想自动查**（开发调试）：
+- 可用 `browser` + `profile="openclaw"` 打开 skills.sh → 自动搜索
+- 或 clone `openclaw/skills` 到本地 → 本地 grep 搜索（>8GB，不推荐）
 
 ### 步骤 3：调研
 
@@ -375,3 +365,65 @@ python3 ~/.openclaw/workspace/local-skill-creator/scripts/register_memos.py --cl
 - `agents/comparator.md` — 盲测 A/B 对比
 - `agents/analyzer.md` — 分析为什么某版本更好
 - `references/schemas.md` — evals.json、grading.json 等 JSON 结构
+
+---
+
+## 缓存机制（新增）
+
+### 缓存文件位置
+`~/.openclaw/.find-skills-cache.json`
+
+### 缓存结构（JSON）
+```json
+{
+  "version": "1.0",
+  "updated_at": "2026-03-14T12:00:00+08:00",
+  "entries": [
+    {
+      "query": "douyin viral video",
+      "query_normalized": "douyin viral video",
+      "timestamp": "2026-03-14T12:00:00+08:00",
+      "ttl_ms": 86400000,
+      "result": [
+        {
+          "skill_slug": "jimliuxinghai/douyin-bulk-scraper",
+          "name": "Douyin Bulk Scraper",
+          "description": "Bulk scrape Douyin (TikTok) videos, comments, and analytics.",
+          "install_cmd": "npx skills add jimliuxinghai/douyin-bulk-scraper",
+          "url": "https://skills.sh/jimliuxinghai/douyin-bulk-scraper",
+          "source": "npx skills find"
+        },
+        {
+          "skill_slug": "openclaw/douyin-analytics",
+          "name": "Douyin Analytics",
+          "description": "Analyze Douyin video performance with reaction metrics.",
+          "install_cmd": "npx skills add openclaw/douyin-analytics",
+          "url": "https://skills.sh/openclaw/douyin-analytics",
+          "source": "npx skills find"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 缓存命中逻辑
+1. 用户输入 `query` → `trim().toLowerCase()`
+2. 遍历 `entries`，匹配 `entry.query_normalized === normalized_query`
+3. 检查是否过期：`Date.now() - entry.timestamp < entry.ttl_ms`
+4. ✅ 命中 → 直接返回 `entry.result`
+5. ❌ 未命中或过期 → 调用 `npx skills find` → 写入新 entry
+
+### 手动刷新缓存
+```bash
+# 清空缓存
+rm -f ~/.openclaw/.find-skills-cache.json
+
+# 或强制刷新（AI agent 自动处理）
+exec ~/.openclaw/workspace/local-skill-creator/scripts/find_skills_cached.py --force "douyin viral"
+```
+
+### 理论性能收益
+- **Without cache**：每次 query → `npx skills find` → ~200~500ms
+- **With cache**：-hit → <1ms（JSON read）
+- **缓存空间**：100 queries × ~2KB/query = ~200KB（可忽略）

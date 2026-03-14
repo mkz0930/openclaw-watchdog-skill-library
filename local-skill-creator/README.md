@@ -1,12 +1,31 @@
 # local-skill-creator
 
 创建、验证、发布 AgentSkill 的本地工具集（**Anthropics iteration enabled + MemOS registration**），
-**最新更新：增加了 `expectations` 字段 + `.history.json` 版本跟踪 + 用户沟通指南**。
+**最新更新：增加了 `.history.json` 版本跟踪 + 用户沟通指南 + 查询已有 skill 流程**。
 
 ## 用途
 
 标准化 skill 创建流程：脚手架生成 → 内容填写 → **测试验证**（Anthropics）→ GitHub 发布 → MemOS 自动注册。
 新增：量化评估（expectation_pass_rate）、版本迭代追踪、用户友好沟通策略。
+
+---
+
+## 查询已有 skill（ **说明** ）
+
+由于以下原因，**暂不自动调用 `npx skills find` 或 `skills.sh` 查询**：
+
+1. `npx skills` CLI 需要交互式输入，headless 环境可能卡住
+2. `skills.sh/?q=xxx` 页面由 JS 渲染，`web_fetch` 不返回结果
+3. `openclaw/skills` mirror 很大（8,858 skill），难以本地维护
+
+**推荐做法**：
+- 用户说「帮我做个 skill」→ AI 先反问「是否需要我帮你查是否有现成 skill？」
+- 用户确认「是」→ 提供 `https://skills.sh/` 链接让用户自己查
+- 用户确认「否」→ 直接进入「创建新 skill」流程
+
+**如果需要调试**：
+- 可手动用 `browser` + `profile="openclaw"` 打开 skills.sh → 搜索
+- 或 clone `openclaw/skills` 到本地 → 本地 grep 搜索（不推荐，>8GB）
 
 ## 快速开始
 
